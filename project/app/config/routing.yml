@@ -1,0 +1,5 @@
+core_core:
+    resource: "@CoreCoreBundle/Controller/"
+    type:     annotation
+    prefix:   /
+

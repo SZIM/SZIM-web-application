@@ -1,0 +1,18 @@
+szim_create_test_data_plain_pages:
+    pattern:  /testdata/plainpages
+    defaults: { _controller: SZIMMainBundle:Default:testdata_plainpages }
+
+szim_create_test_data_pages_with_shortcodes:
+    pattern: /testdata/pageswithshortcodes
+    defaults: { _controller: SZIMMainBundle:Default:testdata_pageswithshortcodes}
+
+szim_create_test_data_shortcodes:
+    pattern: /testdata/shortcodes
+    defaults: { _controller: SZIMMainBundle:Default:testdata_shortcodes}
+
+
+szim_main_homepage:
+    pattern:  /{page}
+    defaults: { _controller: SZIMMainBundle:Default:index }
+
+

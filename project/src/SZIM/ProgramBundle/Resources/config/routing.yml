@@ -1,0 +1,3 @@
+szim_program_homepage:
+    pattern:  /{params}
+    defaults: { _controller: SZIMProgramBundle:Default:index }

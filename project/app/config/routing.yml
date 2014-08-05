@@ -1,0 +1,8 @@
+szim_program:
+    resource: "@SZIMProgramBundle/Resources/config/routing.yml"
+    prefix:   /program
+
+szim_main:
+    resource: "@SZIMMainBundle/Resources/config/routing.yml"
+    prefix:   /
+

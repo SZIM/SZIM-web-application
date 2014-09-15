@@ -30,6 +30,10 @@ class IpValidator extends ConstraintValidator
      */
     public function validate($value, Constraint $constraint)
     {
+        if (!$constraint instanceof Ip) {
+            throw new UnexpectedTypeException($constraint, __NAMESPACE__.'\Ip');
+        }
+
         if (null === $value || '' === $value) {
             return;
         }
@@ -91,7 +95,9 @@ class IpValidator extends ConstraintValidator
         }
 
         if (!filter_var($value, FILTER_VALIDATE_IP, $flag)) {
-            $this->context->addViolation($constraint->message, array('{{ value }}' => $value));
+            $this->context->addViolation($constraint->message, array(
+                '{{ value }}' => $this->formatValue($value),
+            ));
         }
     }
 }

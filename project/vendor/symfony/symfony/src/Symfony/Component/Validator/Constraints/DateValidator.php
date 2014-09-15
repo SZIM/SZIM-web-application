@@ -29,6 +29,10 @@ class DateValidator extends ConstraintValidator
      */
     public function validate($value, Constraint $constraint)
     {
+        if (!$constraint instanceof Date) {
+            throw new UnexpectedTypeException($constraint, __NAMESPACE__.'\Date');
+        }
+
         if (null === $value || '' === $value || $value instanceof \DateTime) {
             return;
         }
@@ -40,7 +44,9 @@ class DateValidator extends ConstraintValidator
         $value = (string) $value;
 
         if (!preg_match(static::PATTERN, $value, $matches) || !checkdate($matches[2], $matches[3], $matches[1])) {
-            $this->context->addViolation($constraint->message, array('{{ value }}' => $value));
+            $this->context->addViolation($constraint->message, array(
+                '{{ value }}' => $this->formatValue($value),
+            ));
         }
     }
 }

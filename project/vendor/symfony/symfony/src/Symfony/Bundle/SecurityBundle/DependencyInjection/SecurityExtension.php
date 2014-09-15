@@ -66,6 +66,11 @@ class SecurityExtension extends Extension
         $loader->load('templating_twig.xml');
         $loader->load('collectors.xml');
 
+        if (!class_exists('Symfony\Component\ExpressionLanguage\ExpressionLanguage')) {
+            $container->removeDefinition('security.expression_language');
+            $container->removeDefinition('security.access.expression_voter');
+        }
+
         // set some global scalars
         $container->setParameter('security.access.denied_url', $config['access_denied_url']);
         $container->setParameter('security.authentication.manager.erase_credentials', $config['erase_credentials']);
@@ -254,7 +259,8 @@ class SecurityExtension extends Extension
         } elseif (isset($firewall['pattern']) || isset($firewall['host'])) {
             $pattern = isset($firewall['pattern']) ? $firewall['pattern'] : null;
             $host = isset($firewall['host']) ? $firewall['host'] : null;
-            $matcher = $this->createRequestMatcher($container, $pattern, $host);
+            $methods = isset($firewall['methods']) ? $firewall['methods'] : array();
+            $matcher = $this->createRequestMatcher($container, $pattern, $host, $methods);
         }
 
         // Security disabled?

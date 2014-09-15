@@ -1,0 +1,7 @@
+parameters:
+#    szim_admin.example.class: SZIM\AdminBundle\Example
+
+services:
+#    szim_admin.example:
+#        class: %szim_admin.example.class%
+#        arguments: [@service_id, "plain_value", %parameter%]

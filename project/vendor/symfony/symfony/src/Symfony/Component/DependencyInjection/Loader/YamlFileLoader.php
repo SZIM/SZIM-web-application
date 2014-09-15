@@ -234,6 +234,11 @@ class YamlFileLoader extends FileLoader
             }
         }
 
+        if (isset($service['decorates'])) {
+            $renameId = isset($service['decoration_inner_name']) ? $service['decoration_inner_name'] : null;
+            $definition->setDecoratedService($service['decorates'], $renameId);
+        }
+
         $this->container->setDefinition($id, $definition);
     }
 
@@ -243,6 +248,8 @@ class YamlFileLoader extends FileLoader
      * @param string $file
      *
      * @return array The file content
+     *
+     * @throws InvalidArgumentException when the given file is not a local file or when it does not exist
      */
     protected function loadFile($file)
     {

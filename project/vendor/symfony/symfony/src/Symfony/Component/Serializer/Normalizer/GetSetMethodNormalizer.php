@@ -46,6 +46,8 @@ class GetSetMethodNormalizer extends SerializerAwareNormalizer implements Normal
      * @param callable[] $callbacks help normalize the result
      *
      * @throws InvalidArgumentException if a non-callable callback is set
+     *
+     * @return GetSetMethodNormalizer
      */
     public function setCallbacks(array $callbacks)
     {
@@ -55,26 +57,36 @@ class GetSetMethodNormalizer extends SerializerAwareNormalizer implements Normal
             }
         }
         $this->callbacks = $callbacks;
+
+        return $this;
     }
 
     /**
      * Set ignored attributes for normalization
      *
      * @param array $ignoredAttributes
+     *
+     * @return GetSetMethodNormalizer
      */
     public function setIgnoredAttributes(array $ignoredAttributes)
     {
         $this->ignoredAttributes = $ignoredAttributes;
+
+        return $this;
     }
 
     /**
      * Set attributes to be camelized on denormalize
      *
      * @param array $camelizedAttributes
+     *
+     * @return GetSetMethodNormalizer
      */
     public function setCamelizedAttributes(array $camelizedAttributes)
     {
         $this->camelizedAttributes = $camelizedAttributes;
+
+        return $this;
     }
 
     /**
@@ -88,7 +100,7 @@ class GetSetMethodNormalizer extends SerializerAwareNormalizer implements Normal
         $attributes = array();
         foreach ($reflectionMethods as $method) {
             if ($this->isGetMethod($method)) {
-                $attributeName = lcfirst(substr($method->name, 3));
+                $attributeName = lcfirst(substr($method->name, 0 === strpos($method->name, 'is') ? 2 : 3));
 
                 if (in_array($attributeName, $this->ignoredAttributes)) {
                     continue;
@@ -117,6 +129,18 @@ class GetSetMethodNormalizer extends SerializerAwareNormalizer implements Normal
      */
     public function denormalize($data, $class, $format = null, array $context = array())
     {
+        if (is_array($data) || is_object($data) && $data instanceof \ArrayAccess) {
+            $normalizedData = $data;
+        } elseif (is_object($data)) {
+            $normalizedData = array();
+
+            foreach ($data as $attribute => $value) {
+                $normalizedData[$attribute] = $value;
+            }
+        } else {
+            $normalizedData = array();
+        }
+
         $reflectionClass = new \ReflectionClass($class);
         $constructor = $reflectionClass->getConstructor();
 
@@ -127,11 +151,13 @@ class GetSetMethodNormalizer extends SerializerAwareNormalizer implements Normal
             foreach ($constructorParameters as $constructorParameter) {
                 $paramName = lcfirst($this->formatAttribute($constructorParameter->name));
 
-                if (isset($data[$paramName])) {
-                    $params[] = $data[$paramName];
+                if (isset($normalizedData[$paramName])) {
+                    $params[] = $normalizedData[$paramName];
                     // don't run set for a parameter passed to the constructor
-                    unset($data[$paramName]);
-                } elseif (!$constructorParameter->isOptional()) {
+                    unset($normalizedData[$paramName]);
+                } elseif ($constructorParameter->isOptional()) {
+                    $params[] = $constructorParameter->getDefaultValue();
+                } else {
                     throw new RuntimeException(
                         'Cannot create an instance of '.$class.
                         ' from serialized data because its constructor requires '.
@@ -142,10 +168,10 @@ class GetSetMethodNormalizer extends SerializerAwareNormalizer implements Normal
 
             $object = $reflectionClass->newInstanceArgs($params);
         } else {
-            $object = new $class;
+            $object = new $class();
         }
 
-        foreach ($data as $attribute => $value) {
+        foreach ($normalizedData as $attribute => $value) {
             $setter = 'set'.$this->formatAttribute($attribute);
 
             if (method_exists($object, $setter)) {
@@ -214,17 +240,19 @@ class GetSetMethodNormalizer extends SerializerAwareNormalizer implements Normal
     }
 
     /**
-     * Checks if a method's name is get.* and can be called without parameters.
+     * Checks if a method's name is get.* or is.*, and can be called without parameters.
      *
      * @param \ReflectionMethod $method the method to check
      *
-     * @return bool    whether the method is a getter.
+     * @return bool whether the method is a getter or boolean getter.
      */
     private function isGetMethod(\ReflectionMethod $method)
     {
+        $methodLength = strlen($method->name);
+
         return (
-            0 === strpos($method->name, 'get') &&
-            3 < strlen($method->name) &&
+            ((0 === strpos($method->name, 'get') && 3 < $methodLength) ||
+            (0 === strpos($method->name, 'is') && 2 < $methodLength)) &&
             0 === $method->getNumberOfRequiredParameters()
         );
     }

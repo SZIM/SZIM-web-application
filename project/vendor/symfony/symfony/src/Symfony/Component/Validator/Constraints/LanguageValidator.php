@@ -30,6 +30,10 @@ class LanguageValidator extends ConstraintValidator
      */
     public function validate($value, Constraint $constraint)
     {
+        if (!$constraint instanceof Language) {
+            throw new UnexpectedTypeException($constraint, __NAMESPACE__.'\Language');
+        }
+
         if (null === $value || '' === $value) {
             return;
         }
@@ -42,7 +46,9 @@ class LanguageValidator extends ConstraintValidator
         $languages = Intl::getLanguageBundle()->getLanguageNames();
 
         if (!isset($languages[$value])) {
-            $this->context->addViolation($constraint->message, array('{{ value }}' => $value));
+            $this->context->addViolation($constraint->message, array(
+                '{{ value }}' => $this->formatValue($value),
+            ));
         }
     }
 }

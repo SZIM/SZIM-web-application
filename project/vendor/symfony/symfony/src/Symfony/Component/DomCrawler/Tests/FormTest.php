@@ -85,6 +85,20 @@ class FormTest extends \PHPUnit_Framework_TestCase
         $form = new Form($nodes->item(1), 'http://example.com');
     }
 
+    public function testConstructorLoadsOnlyFieldsOfTheRightForm()
+    {
+        $dom = $this->createTestMultipleForm();
+
+        $nodes = $dom->getElementsByTagName('form');
+        $buttonElements = $dom->getElementsByTagName('button');
+
+        $form = new Form($nodes->item(0), 'http://example.com');
+        $this->assertCount(3, $form->all());
+
+        $form = new Form($buttonElements->item(1), 'http://example.com');
+        $this->assertCount(5, $form->all());
+    }
+
     public function testConstructorHandlesFormAttribute()
     {
         $dom = $this->createTestHtml5Form();
@@ -380,8 +394,8 @@ class FormTest extends \PHPUnit_Framework_TestCase
 
     public function testGetValues()
     {
-        $form = $this->createForm('<form><input type="text" name="foo[bar]" value="foo" /><input type="text" name="bar" value="bar" /><input type="submit" /></form>');
-        $this->assertEquals(array('foo[bar]' => 'foo', 'bar' => 'bar'), $form->getValues(), '->getValues() returns all form field values');
+        $form = $this->createForm('<form><input type="text" name="foo[bar]" value="foo" /><input type="text" name="bar" value="bar" /><select multiple="multiple" name="baz[]"></select><input type="submit" /></form>');
+        $this->assertEquals(array('foo[bar]' => 'foo', 'bar' => 'bar', 'baz' => array()), $form->getValues(), '->getValues() returns all form field values');
 
         $form = $this->createForm('<form><input type="checkbox" name="foo" value="foo" /><input type="text" name="bar" value="bar" /><input type="submit" /></form>');
         $this->assertEquals(array('bar' => 'bar'), $form->getValues(), '->getValues() does not include not-checked checkboxes');
@@ -417,6 +431,10 @@ class FormTest extends \PHPUnit_Framework_TestCase
 
         $form = $this->createForm('<form><input type="text" name="fo.o[ba.r][]" value="foo" /><input type="text" name="fo.o[ba.r][ba.z]" value="bar" /><input type="submit" /></form>');
         $this->assertEquals(array('fo.o' => array('ba.r' => array('foo', 'ba.z' => 'bar'))), $form->getPhpValues(), '->getPhpValues() preserves periods and spaces in names recursively');
+
+        $form = $this->createForm('<form><input type="text" name="foo[bar]" value="foo" /><input type="text" name="bar" value="bar" /><select multiple="multiple" name="baz[]"></select><input type="submit" /></form>');
+        $this->assertEquals(array('foo' => array('bar' => 'foo'), 'bar' => 'bar'), $form->getPhpValues(), "->getPhpValues() doesn't return empty values");
+
     }
 
     public function testGetFiles()
@@ -651,6 +669,13 @@ class FormTest extends \PHPUnit_Framework_TestCase
         $this->assertSame($nodes->item(0), $form->getFormNode(), '->getFormNode() returns the form node associated with this form');
     }
 
+    public function testTypeAttributeIsCaseInsensitive()
+    {
+        $form = $this->createForm('<form method="post"><input type="IMAGE" name="example" /></form>');
+        $this->assertTrue($form->has('example.x'), '->has() returns true if the image input was correctly turned into an x and a y fields');
+        $this->assertTrue($form->has('example.y'), '->has() returns true if the image input was correctly turned into an x and a y fields');
+    }
+
     /**
      * @expectedException \InvalidArgumentException
      */
@@ -777,6 +802,28 @@ class FormTest extends \PHPUnit_Framework_TestCase
         ));
     }
 
+    public function testDifferentFieldTypesWithSameName()
+    {
+        $dom = new \DOMDocument();
+        $dom->loadHTML('
+            <html>
+                <body>
+                    <form action="/">
+                        <input type="hidden" name="option" value="default">
+                        <input type="radio" name="option" value="A">
+                        <input type="radio" name="option" value="B">
+                        <input type="hidden" name="settings[1]" value="0">
+                        <input type="checkbox" name="settings[1]" value="1" id="setting-1">
+                        <button>klickme</button>
+                    </form>
+                </body>
+            </html>
+        ');
+        $form = new Form($dom->getElementsByTagName('form')->item(0), 'http://example.com');
+
+        $this->assertInstanceOf('Symfony\Component\DomCrawler\Field\ChoiceFormField', $form->get('option'));
+    }
+
     protected function getFormFieldMock($name, $value = null)
     {
         $field = $this
@@ -806,7 +853,6 @@ class FormTest extends \PHPUnit_Framework_TestCase
         $dom = new \DOMDocument();
         $dom->loadHTML('<html>'.$form.'</html>');
 
-        $nodes = $dom->getElementsByTagName('input');
         $xPath = new \DOMXPath($dom);
         $nodes = $xPath->query('//input | //button');
 
@@ -854,6 +900,32 @@ class FormTest extends \PHPUnit_Framework_TestCase
         return $dom;
     }
 
+    protected function createTestMultipleForm()
+    {
+        $dom = new \DOMDocument();
+        $dom->loadHTML('
+        <html>
+            <h1>Hello form</h1>
+            <form action="" method="POST">
+                <div><input type="checkbox" name="apples[]" value="1" checked /></div>
+                <input type="checkbox" name="oranges[]" value="1" checked />
+                <div><label></label><input type="hidden" name="form_name" value="form-1" /></div>
+                <input type="submit" name="button_1" value="Capture fields" />
+                <button type="submit" name="button_2">Submit form_2</button>
+            </form>
+            <form action="" method="POST">
+                <div><div><input type="checkbox" name="oranges[]" value="2" checked />
+                <input type="checkbox" name="oranges[]" value="3" checked /></div></div>
+                <input type="hidden" name="form_name" value="form_2" />
+                <input type="hidden" name="outer_field" value="success" />
+                <button type="submit" name="button_3">Submit from outside the form</button>
+            </form>
+            <button />
+        </html>');
+
+        return $dom;
+    }
+
     public function testgetPhpValuesWithEmptyTextarea()
     {
       $dom = new \DOMDocument();
@@ -869,5 +941,4 @@ class FormTest extends \PHPUnit_Framework_TestCase
       $form = new Form($nodes->item(0), 'http://example.com');
       $this->assertEquals($form->getPhpValues(), array('example' => ''));
     }
-
 }

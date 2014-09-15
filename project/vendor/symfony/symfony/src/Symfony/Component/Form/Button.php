@@ -51,7 +51,7 @@ class Button implements \IteratorAggregate, FormInterface
      *
      * @param mixed $offset
      *
-     * @return bool    Always returns false.
+     * @return bool Always returns false.
      */
     public function offsetExists($offset)
     {
@@ -152,7 +152,7 @@ class Button implements \IteratorAggregate, FormInterface
      *
      * @param string $name
      *
-     * @return bool    Always returns false.
+     * @return bool Always returns false.
      */
     public function has($name)
     {
@@ -184,9 +184,9 @@ class Button implements \IteratorAggregate, FormInterface
     /**
      * {@inheritdoc}
      */
-    public function getErrors()
+    public function getErrors($deep = false, $flatten = true)
     {
-        return array();
+        return new FormErrorIterator($this, array());
     }
 
     /**
@@ -254,7 +254,7 @@ class Button implements \IteratorAggregate, FormInterface
     /**
      * Returns whether the button is submitted.
      *
-     * @return bool    true if the button was submitted.
+     * @return bool true if the button was submitted.
      */
     public function isSubmitted()
     {
@@ -295,7 +295,7 @@ class Button implements \IteratorAggregate, FormInterface
     /**
      * Unsupported method.
      *
-     * @return bool    Always returns true.
+     * @return bool Always returns true.
      */
     public function isValid()
     {
@@ -305,7 +305,7 @@ class Button implements \IteratorAggregate, FormInterface
     /**
      * Unsupported method.
      *
-     * @return bool    Always returns false.
+     * @return bool Always returns false.
      */
     public function isRequired()
     {
@@ -317,13 +317,17 @@ class Button implements \IteratorAggregate, FormInterface
      */
     public function isDisabled()
     {
-        return $this->config->getDisabled();
+        if (null === $this->parent || !$this->parent->isDisabled()) {
+            return $this->config->getDisabled();
+        }
+
+        return true;
     }
 
     /**
      * Unsupported method.
      *
-     * @return bool    Always returns true.
+     * @return bool Always returns true.
      */
     public function isEmpty()
     {
@@ -333,7 +337,7 @@ class Button implements \IteratorAggregate, FormInterface
     /**
      * Unsupported method.
      *
-     * @return bool    Always returns true.
+     * @return bool Always returns true.
      */
     public function isSynchronized()
     {
@@ -422,7 +426,7 @@ class Button implements \IteratorAggregate, FormInterface
     /**
      * Unsupported method.
      *
-     * @return int     Always returns 0.
+     * @return int Always returns 0.
      */
     public function count()
     {

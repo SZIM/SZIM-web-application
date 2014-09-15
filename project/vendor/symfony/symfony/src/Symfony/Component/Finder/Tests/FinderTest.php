@@ -16,7 +16,6 @@ use Symfony\Component\Finder\Adapter;
 
 class FinderTest extends Iterator\RealIteratorTestCase
 {
-
     public function testCreate()
     {
         $this->assertInstanceOf('Symfony\Component\Finder\Finder', Finder::create());
@@ -331,6 +330,17 @@ class FinderTest extends Iterator\RealIteratorTestCase
     {
         $finder = $this->buildFinder($adapter);
         $finder->in(__DIR__.'/Fixtures/A/a*');
+    }
+
+    /**
+     * @dataProvider getAdaptersTestData
+     */
+    public function testInWithGlobBrace($adapter)
+    {
+        $finder = $this->buildFinder($adapter);
+        $finder->in(array(__DIR__.'/Fixtures/{A,copy/A}/B/C'))->getIterator();
+
+        $this->assertIterator($this->toAbsoluteFixtures(array('A/B/C/abc.dat', 'copy/A/B/C/abc.dat.copy')), $finder);
     }
 
     /**
@@ -729,17 +739,30 @@ class FinderTest extends Iterator\RealIteratorTestCase
         $finder->files()->in(self::$tmpDir);
 
         // make 'foo' directory non-readable
-        chmod(self::$tmpDir.DIRECTORY_SEPARATOR.'foo', 0333);
+        $testDir = self::$tmpDir.DIRECTORY_SEPARATOR.'foo';
+        chmod($testDir, 0333);
 
-        try {
-            $this->assertIterator($this->toAbsolute(array('foo bar', 'test.php', 'test.py')), $finder->getIterator());
-            $this->fail('Finder should throw an exception when opening a non-readable directory.');
-        } catch (\Exception $e) {
-            $this->assertInstanceOf('Symfony\\Component\\Finder\\Exception\\AccessDeniedException', $e);
+        if (false === $couldRead = is_readable($testDir)) {
+            try {
+                $this->assertIterator($this->toAbsolute(array('foo bar', 'test.php', 'test.py')), $finder->getIterator());
+                $this->fail('Finder should throw an exception when opening a non-readable directory.');
+            } catch (\Exception $e) {
+                $expectedExceptionClass = 'Symfony\\Component\\Finder\\Exception\\AccessDeniedException';
+                if ($e instanceof \PHPUnit_Framework_ExpectationFailedException) {
+                    $this->fail(sprintf("Expected exception:\n%s\nGot:\n%s\nWith comparison failure:\n%s", $expectedExceptionClass, 'PHPUnit_Framework_ExpectationFailedException', $e->getComparisonFailure()->getExpectedAsString()));
+                }
+
+                $this->assertInstanceOf($expectedExceptionClass, $e);
+            }
         }
 
         // restore original permissions
-        chmod(self::$tmpDir.DIRECTORY_SEPARATOR.'foo', 0777);
+        chmod($testDir, 0777);
+        clearstatcache($testDir);
+
+        if ($couldRead) {
+            $this->markTestSkipped('could read test files while test requires unreadable');
+        }
     }
 
     /**
@@ -755,12 +778,20 @@ class FinderTest extends Iterator\RealIteratorTestCase
         $finder->files()->ignoreUnreadableDirs()->in(self::$tmpDir);
 
         // make 'foo' directory non-readable
-        chmod(self::$tmpDir.DIRECTORY_SEPARATOR.'foo', 0333);
+        $testDir = self::$tmpDir.DIRECTORY_SEPARATOR.'foo';
+        chmod($testDir, 0333);
 
-        $this->assertIterator($this->toAbsolute(array('foo bar', 'test.php', 'test.py')), $finder->getIterator());
+        if (false === ($couldRead = is_readable($testDir))) {
+            $this->assertIterator($this->toAbsolute(array('foo bar', 'test.php', 'test.py')), $finder->getIterator());
+        }
 
         // restore original permissions
-        chmod(self::$tmpDir.DIRECTORY_SEPARATOR.'foo', 0777);
+        chmod($testDir, 0777);
+        clearstatcache($testDir);
+
+        if ($couldRead) {
+            $this->markTestSkipped('could read test files while test requires unreadable');
+        }
     }
 
     private function buildTestData(array $tests)
@@ -796,7 +827,7 @@ class FinderTest extends Iterator\RealIteratorTestCase
         );
     }
 
-   /**
+    /**
      * Searching in multiple locations with sub directories involves
      * AppendIterator which does an unnecessary rewind which leaves
      * FilterIterator with inner FilesystemIterator in an invalid state.
@@ -820,26 +851,5 @@ class FinderTest extends Iterator\RealIteratorTestCase
 
         $this->assertIterator($expected, $finder);
         $this->assertIteratorInForeach($expected, $finder);
-    }
-
-    public function testNonSeekableStream()
-    {
-        if (!in_array('ftp', stream_get_wrappers())) {
-            $this->markTestSkipped(sprintf('Unavailable stream "%s".', 'ftp'));
-        }
-
-        try {
-            $i = Finder::create()->in('ftp://ftp.mozilla.org/')->depth(0)->getIterator();
-        } catch (\UnexpectedValueException $e) {
-            $this->markTestSkipped(sprintf('Unsupported stream "%s".', 'ftp'));
-        }
-
-        $contains = array(
-            'ftp://ftp.mozilla.org'.DIRECTORY_SEPARATOR.'README',
-            'ftp://ftp.mozilla.org'.DIRECTORY_SEPARATOR.'index.html',
-            'ftp://ftp.mozilla.org'.DIRECTORY_SEPARATOR.'pub',
-        );
-
-        $this->assertIteratorInForeach($contains, $i);
     }
 }

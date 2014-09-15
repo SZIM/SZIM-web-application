@@ -4,7 +4,7 @@
  * Entiti class represent ShortCode record
  *
  * @author Mateusz Antkowiak
- * @version 0.0.1
+ * @version 0.0.2
  */
 
 namespace SZIM\MainBundle\Entity;
@@ -45,6 +45,16 @@ class ShortCode {
      * @ORM\Column(type="string", length=100)
      */
     protected $version;
+
+     /**
+     * @ORM\Column(type="string", length=50)
+     */
+    protected $package;
+
+/**
+     * @ORM\Column(type="string", length=50)
+     */
+    protected $controller_name;
 
     /**
      * Get id
@@ -146,5 +156,51 @@ class ShortCode {
     public function getVersion()
     {
         return $this->version;
+    }
+
+    /**
+     * Set package
+     *
+     * @param string $package
+     * @return ShortCode
+     */
+    public function setPackage($package)
+    {
+        $this->package = $package;
+    
+        return $this;
+    }
+
+    /**
+     * Get package
+     *
+     * @return string 
+     */
+    public function getPackage()
+    {
+        return $this->package;
+    }
+
+    /**
+     * Set controller_name
+     *
+     * @param string $controllerName
+     * @return ShortCode
+     */
+    public function setControllerName($controllerName)
+    {
+        $this->controller_name = $controllerName;
+    
+        return $this;
+    }
+
+    /**
+     * Get controller_name
+     *
+     * @return string 
+     */
+    public function getControllerName()
+    {
+        return $this->controller_name;
     }
 }

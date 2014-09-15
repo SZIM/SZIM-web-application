@@ -42,7 +42,7 @@ class RequestTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('bar', $request->attributes->get('foo'), '->initialize() takes an array of attributes as its third argument');
 
         $request->initialize(array(), array(), array(), array(), array(), array('HTTP_FOO' => 'bar'));
-        $this->assertEquals('bar', $request->headers->get('FOO'), '->initialize() takes an array of HTTP headers as its fourth argument');
+        $this->assertEquals('bar', $request->headers->get('FOO'), '->initialize() takes an array of HTTP headers as its sixth argument');
     }
 
     public function testGetLocale()
@@ -163,6 +163,14 @@ class RequestTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(90, $request->getPort());
         $this->assertTrue($request->isSecure());
 
+        $request = Request::create('https://[::1]/foo');
+        $this->assertEquals('https://[::1]/foo', $request->getUri());
+        $this->assertEquals('/foo', $request->getPathInfo());
+        $this->assertEquals('[::1]', $request->getHost());
+        $this->assertEquals('[::1]', $request->getHttpHost());
+        $this->assertEquals(443, $request->getPort());
+        $this->assertTrue($request->isSecure());
+
         $json = '{"jsonrpc":"2.0","method":"echo","id":7,"params":["Hello World"]}';
         $request = Request::create('http://example.com/jsonrpc', 'POST', array(), array(), array(), array(), $json);
         $this->assertEquals($json, $request->getContent());
@@ -192,24 +200,24 @@ class RequestTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('test.com:90', $request->getHttpHost());
         $this->assertFalse($request->isSecure());
 
-        $request = Request::create('http://test:test@test.com');
+        $request = Request::create('http://username:password@test.com');
         $this->assertEquals('http://test.com/', $request->getUri());
         $this->assertEquals('/', $request->getPathInfo());
         $this->assertEquals('', $request->getQueryString());
         $this->assertEquals(80, $request->getPort());
         $this->assertEquals('test.com', $request->getHttpHost());
-        $this->assertEquals('test', $request->getUser());
-        $this->assertEquals('test', $request->getPassword());
+        $this->assertEquals('username', $request->getUser());
+        $this->assertEquals('password', $request->getPassword());
         $this->assertFalse($request->isSecure());
 
-        $request = Request::create('http://testnopass@test.com');
+        $request = Request::create('http://username@test.com');
         $this->assertEquals('http://test.com/', $request->getUri());
         $this->assertEquals('/', $request->getPathInfo());
         $this->assertEquals('', $request->getQueryString());
         $this->assertEquals(80, $request->getPort());
         $this->assertEquals('test.com', $request->getHttpHost());
-        $this->assertEquals('testnopass', $request->getUser());
-        $this->assertNull($request->getPassword());
+        $this->assertEquals('username', $request->getUser());
+        $this->assertSame('',$request->getPassword());
         $this->assertFalse($request->isSecure());
 
         $request = Request::create('http://test.com/?foo');
@@ -1004,9 +1012,20 @@ class RequestTest extends \PHPUnit_Framework_TestCase
 
         $request->headers->set('CONTENT_TYPE', 'multipart/form-data');
         $request->headers->set('CONTENT_LENGTH', 12345);
+
         $request->overrideGlobals();
+
         $this->assertArrayHasKey('CONTENT_TYPE', $_SERVER);
         $this->assertArrayHasKey('CONTENT_LENGTH', $_SERVER);
+
+        $request->initialize(array('foo' => 'bar', 'baz' => 'foo'));
+        $request->query->remove('baz');
+
+        $request->overrideGlobals();
+
+        $this->assertEquals(array('foo' => 'bar'), $_GET);
+        $this->assertEquals('foo=bar', $_SERVER['QUERY_STRING']);
+        $this->assertEquals('foo=bar', $request->server->get('QUERY_STRING'));
 
         // restore initial $_SERVER array
         $_SERVER = $server;
@@ -1637,6 +1656,59 @@ class RequestTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('foo', Request::create('/')->getFoo());
 
         Request::setFactory(null);
+    }
+
+    /**
+     * @dataProvider getLongHostNames
+     */
+    public function testVeryLongHosts($host)
+    {
+        $start = microtime(true);
+
+        $request = Request::create('/');
+        $request->headers->set('host', $host);
+        $this->assertEquals($host, $request->getHost());
+        $this->assertLessThan(1, microtime(true) - $start);
+    }
+
+    /**
+     * @dataProvider getHostValidities
+     */
+    public function testHostValidity($host, $isValid, $expectedHost = null, $expectedPort = null)
+    {
+        $request = Request::create('/');
+        $request->headers->set('host', $host);
+
+        if ($isValid) {
+            $this->assertSame($expectedHost ?: $host, $request->getHost());
+            if ($expectedPort) {
+                $this->assertSame($expectedPort, $request->getPort());
+            }
+        } else {
+            $this->setExpectedException('UnexpectedValueException', 'Invalid Host');
+            $request->getHost();
+        }
+    }
+
+    public function getHostValidities()
+    {
+        return array(
+            array('.a', false),
+            array('a..', false),
+            array('a.', true),
+            array("\xE9", false),
+            array('[::1]', true),
+            array('[::1]:80', true, '[::1]', 80),
+            array(str_repeat('.', 101), false),
+        );
+    }
+
+    public function getLongHostNames()
+    {
+        return array(
+            array('a'.str_repeat('.a', 40000)),
+            array(str_repeat(':', 101)),
+        );
     }
 }
 

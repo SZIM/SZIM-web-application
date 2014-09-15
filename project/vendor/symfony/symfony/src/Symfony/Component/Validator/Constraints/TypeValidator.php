@@ -13,6 +13,7 @@ namespace Symfony\Component\Validator\Constraints;
 
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidator;
+use Symfony\Component\Validator\Exception\UnexpectedTypeException;
 
 /**
  * @author Bernhard Schussek <bschussek@gmail.com>
@@ -26,6 +27,10 @@ class TypeValidator extends ConstraintValidator
      */
     public function validate($value, Constraint $constraint)
     {
+        if (!$constraint instanceof Type) {
+            throw new UnexpectedTypeException($constraint, __NAMESPACE__.'\Type');
+        }
+
         if (null === $value) {
             return;
         }
@@ -44,7 +49,7 @@ class TypeValidator extends ConstraintValidator
         }
 
         $this->context->addViolation($constraint->message, array(
-            '{{ value }}' => is_object($value) ? get_class($value) : (is_array($value) ? 'Array' : (string) $value),
+            '{{ value }}' => $this->formatValue($value),
             '{{ type }}'  => $constraint->type,
         ));
     }
